@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calculus Passport</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>Calculus Passport</h1>
+  <p class="sub">The curve and the surface in this activity belong to <b>you alone</b>. No other student has your numbers, so your working is the only way through.</p>
+
+  <section id="login" class="card">
+    <label for="reg"><b>Register number</b></label>
+    <div class="row" style="margin-top:6px">
+      <input id="reg" type="text" autocomplete="off" placeholder="e.g. RA2511001234567" style="flex:1;min-width:200px">
+      <button id="go">Open my passport</button>
+    </div>
+    <div id="loginmsg" class="msg bad"></div>
+    <p class="small" id="livenote" hidden>Live view is on: your teacher can see, as it happens, that you are logged in, which tasks you have confirmed and how many wrong tries you made. Only an anonymous code is sent, never your name, answers or working.</p>
+    <p class="small">Work every problem on paper first. Enter the final answers as a fraction (3/4, −7/2) or a terminating decimal (1.375). The page never shows the answer, only whether it matches.</p>
+  </section>
+
+  <section id="app" hidden>
+    <div class="row" style="justify-content:space-between">
+      <div><b id="who"></b> <span class="small" id="progress"></span></div>
+      <div class="row">
+        <span class="pill" id="clock">50:00</span>
+        <button class="ghost" id="clockbtn">Start timer</button>
+        <button class="ghost" id="out">Not me</button>
+      </div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="period"></div>
+    <div id="vizbox"></div>
+    <div id="labbox"></div>
+    <div id="animbox"></div>
+    <div class="card" id="submitbox"></div>
+  </section>
+
+  <section class="sheet" id="sheet"></section>
+</div>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="live.js"></script>
+<script src="lab.js"></script>
+<script src="report.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
