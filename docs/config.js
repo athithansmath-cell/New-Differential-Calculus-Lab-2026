@@ -7,4 +7,4 @@ window.PASSPORT_LIVE = { url: "https://calculus-passport-default-rtdb.asia-south
    apiKey : Firebase console > Project settings > General > Web API key (it is meant to be public).
    domains: allowed email endings, e.g. ["srmist.edu.in"]. An empty list accepts any email address.
    Leave apiKey empty to run practice mode without email sign-in. */
-window.PASSPORT_AUTH = { apiKey: "", domains: [] };
+window.PASSPORT_AUTH = { apiKey: "BGIiEc_YqiXVQIa2VaL9Ja4PiM9lbpX8Yl0V7d1auoZaTCTMAi4MUA9_6grAoirfSPv0Vzi5gLtRfNazg2FhHAQ", domains: [] };
