@@ -37,3 +37,22 @@ canvas{width:100%;max-width:560px;height:auto;border:1px solid var(--line);borde
   .sheet{display:block}.sheet .t{break-inside:avoid;margin:0 0 14mm}.sheet .lines{height:48mm;border:1px solid #999}
   .sheet h2{margin:0 0 4mm}
 }
+/* ---- live lab + notebook ---- */
+.lab .slide{margin:10px 0}.lab input[type=range]{width:100%;accent-color:var(--c)}
+.lab .tog{display:inline-flex;gap:4px;align-items:center;margin-right:10px;font-size:.9rem}
+.rogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin:10px 0}
+.ro{border:1px solid var(--line);border-radius:8px;padding:4px 8px;display:flex;flex-direction:column}
+.ro b{font-variant-numeric:tabular-nums}
+.reading{padding:2px 0;border-bottom:1px dotted var(--line)}
+.lab select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 6px}
+.lab canvas{touch-action:manipulation}
+@media print{.lab{display:none!important}}
+.plan{border-style:dashed}
+@media print{.plan{display:none!important}}
+/* ---- per-question visualiser ---- */
+details.viz{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
+details.viz>summary{cursor:pointer;font-weight:600;color:var(--c)}
+.vz{margin:10px 0 18px}.vzt{font-weight:600;margin-bottom:2px}
+.vzs{display:flex;gap:10px;align-items:center;margin:4px 0}.vzs input[type=range]{flex:1;accent-color:var(--c)}.vzl{min-width:130px}
+.vz canvas{touch-action:manipulation}
+@media print{details.viz{display:none!important}}

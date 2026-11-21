@@ -37,14 +37,15 @@
   }
   function $(id) { return document.getElementById(id); }
 
-  var S = { reg: null, tasks: null, save: null, period: 1, timer: null, left: 3000 };
+  var S = { reg: null, tasks: null, save: null, period: 1, timer: null, left: 3000, salt: null, open: false, name: "", email: null };
+  function storeKey() { return (S.open ? "passport-open:" : "passport:") + S.reg; }
 
   /* ---------- persistence ---------- */
   function load() {
-    try { S.save = JSON.parse(localStorage.getItem("passport:" + S.reg)) || null; } catch (e) { S.save = null; }
+    try { S.save = JSON.parse(localStorage.getItem(storeKey())) || null; } catch (e) { S.save = null; }
     if (!S.save) S.save = { solved: {}, work: {}, tries: {}, bonus: "" };
   }
-  function persist() { try { localStorage.setItem("passport:" + S.reg, JSON.stringify(S.save)); } catch (e) {} }
+  function persist() { try { localStorage.setItem(storeKey(), JSON.stringify(S.save)); } catch (e) {} }
 
   /* ---------- login ---------- */
   function login() {
@@ -52,14 +53,34 @@
     $("loginmsg").textContent = "";
     if (!window.PASSPORT) { $("loginmsg").textContent = "data.js is missing. Ask your instructor."; return; }
     var tasks = window.PASSPORT.students[C.studentKey(window.PASSPORT_SALT, reg)];
-    if (!reg || !tasks) { $("loginmsg").textContent = "This register number is not on the class list. Check it and try again."; return; }
-    S.reg = reg; S.tasks = tasks; load();
+    if (!reg || !tasks) { $("loginmsg").textContent = "This register number is not on the class list. Check it and try again, or use Practice mode below."; return; }
+    S.reg = reg; S.tasks = tasks; S.salt = window.PASSPORT_SALT; S.open = false; S.name = ""; load();
     $("login").hidden = true; $("app").hidden = false;
     $("who").textContent = reg;
     if (window.PassportLive) window.PassportLive.start(C.studentKey(window.PASSPORT_SALT, reg), S.save.solved, S.save.tries);
     buildTabs(); showPeriod(1); buildSheet();
   }
-  function logout() { if (window.PassportLive) window.PassportLive.stop(); S.reg = null; $("app").hidden = true; $("login").hidden = false; $("reg").value = ""; clearInterval(S.timer); }
+  /* practice mode: any register number, problems built in the browser, never marked, never sent anywhere */
+  function openLogin() {
+    var reg = C.normReg($("reg").value), msg = $("loginmsg");
+    msg.textContent = "";
+    if (!window.PassportOpen) { msg.textContent = "Practice mode is not available on this page."; return; }
+    if (!window.PassportOpen.validReg(reg)) { msg.textContent = "Type your register number or roll number first (letters and digits, 4 to 30 characters)."; return; }
+    if (window.PASSPORT && window.PASSPORT.students[C.studentKey(window.PASSPORT_SALT, reg)]) { msg.textContent = "This number is on the class list. Use the button \u201cOpen my passport\u201d so your work is marked."; return; }
+    var ver = null;
+    if (window.PassportAuth && window.PassportAuth.enabled()) {
+      ver = window.PassportAuth.verified();
+      if (!ver) { msg.textContent = "Verify your email first: type it in the box below and press \u201cSend me a sign-in link\u201d."; $("openbox").open = true; return; }
+    }
+    S.email = ver;
+    S.reg = reg; S.open = true; S.salt = window.PassportOpen.OPEN_SALT; S.tasks = window.PassportOpen.make(reg);
+    S.name = ($("pname").value || "").replace(/[\r\n]+/g, " ").trim().slice(0, 60);
+    load();
+    $("login").hidden = true; $("app").hidden = false;
+    $("who").textContent = reg + " \u00b7 PRACTICE MODE";
+    buildTabs(); showPeriod(1); buildSheet();
+  }
+  function logout() { stopAnim(); if (window.PassportViz) window.PassportViz.stopAll(); if (window.PassportLive && !S.open) window.PassportLive.stop(); S.open = false; S.reg = null; $("app").hidden = true; $("login").hidden = false; $("reg").value = ""; clearInterval(S.timer); }
 
   /* ---------- progress ---------- */
   function partsOf(p) {
@@ -72,7 +93,7 @@
   function solvedIn(p) { return partsOf(p).filter(function (k) { return S.save.solved[k] != null; }); }
   function stampFor(p) {
     var ent = solvedIn(p).map(function (k) { return k + "=" + S.save.solved[k]; });
-    return C.stamp(window.PASSPORT_SALT, S.reg, p, ent);
+    return C.stamp(S.salt, S.reg, p, ent);
   }
 
   function buildTabs() {
@@ -92,10 +113,49 @@
   /* ---------- period view ---------- */
   function showPeriod(p) {
     S.period = p; buildTabs();
+    if (window.PassportViz) window.PassportViz.stopAll();
     var box = $("period"); box.innerHTML = "";
+    box.appendChild(planCard(p));
     S.tasks.filter(function (t) { return t.period === p; }).forEach(function (t) { box.appendChild(taskCard(t)); });
-    drawViz(); buildSubmit();
+    drawViz(); drawLab(); drawAnim(); buildSubmit();
     resetClock();
+  }
+
+  /* ---------- suggested time plan (estimates, not measurements) ---------- */
+  var MINS = { "1.1": 6, "1.2": 5, "1.3": 4, "1.4": 8, "1.5": 8, "2.1": 9, "2.2": 5, "2.3": 7, "2.4": 8, "2.5": 6, "2.6": 10, "3.1": 5, "3.2": 4, "3.3": 4, "3.4": 8, "3.5": 8, "3.6": 6 };
+  var PLAN = {
+    1: { core: ["1.1", "1.2", "1.3", "1.4"], opt: ["1.5"], lab: 8, nb: 6, fin: 0 },
+    2: { core: ["2.1", "2.3", "2.4", "2.5"], opt: ["2.2", "2.6"], lab: 6, nb: 5, fin: 0 },
+    3: { core: ["3.1", "3.2", "3.3", "3.4", "3.5"], opt: ["3.6"], lab: 6, nb: 5, fin: 3 }
+  };
+  function planCard(p) {
+    var pl = PLAN[p], core = pl.core.reduce(function (s, id) { return s + MINS[id]; }, 0), total = 2 + core + pl.lab + pl.nb + pl.fin + 2;
+    return h("div", { class: "card plan", style: "--c:" + COLORS[p] }, [
+      h("div", { class: "topic", text: "Suggested plan for this period" }),
+      h("div", { class: "small", text: "Start-up 2 min · core tasks " + core + " min · live lab " + pl.lab + " min · notebook " + pl.nb + " min" + (pl.fin ? " · final reflection " + pl.fin + " min" : "") + " · download and submit 2 min. That is about " + total + " of your 50 minutes." }),
+      h("div", { class: "small", text: "Optional if time is short: " + pl.opt.join(", ") + ". Your progress is saved on this device, so you can finish them later and submit again." })]);
+  }
+
+  /* ---------- live lab + notebook (lab.js) ---------- */
+  function taskDone(id) {
+    var t = S.tasks.filter(function (x) { return x.id === id; })[0];
+    return !!t && t.answers.every(function (a, i) { return S.save.solved[id + ":" + i] != null; });
+  }
+  function labCtx() { return { tasks: S.tasks, save: S.save, persist: persist, color: COLORS[S.period], done: taskDone, reg: S.reg, stamp: stampFor }; }
+  function drawLab() {
+    var box = $("labbox"); box.innerHTML = "";
+    if (!window.PassportLab) return;
+    window.PassportLab.render(S.period, box, labCtx());
+  }
+
+  /* ---------- animation card + animated report (report.js) ---------- */
+  var anim = null;
+  function stopAnim() { if (anim && anim.stop) anim.stop(); anim = null; }
+  function drawAnim() {
+    stopAnim();
+    var box = $("animbox"); box.innerHTML = "";
+    if (!window.PassportReport) return;
+    try { anim = window.PassportReport.card(S.period, box, labCtx()); } catch (e) { box.innerHTML = ""; }
   }
 
   function taskCard(t) {
@@ -103,6 +163,7 @@
     var nOk = t.answers.filter(function (a, i) { return S.save.solved[t.id + ":" + i] != null; }).length;
     var card = h("div", { class: "card task" + (nOk === t.answers.length ? " done" : ""), style: "--c:" + c, id: "task-" + t.id });
     card.appendChild(h("div", { class: "topic", text: t.id + " · " + t.topic }));
+    card.appendChild(h("div", { class: "small", text: "about " + MINS[t.id] + " min" + (PLAN[t.period].opt.indexOf(t.id) >= 0 ? " · optional if you are short of time" : "") }));
     card.appendChild(h("h3", { text: t.title }));
     card.appendChild(h("div", { text: t.text }));
     var ta = h("textarea", { placeholder: "Your working: the formula you used, the derivatives, the substitution. At least a few lines.", "aria-label": "Working for " + t.id });
@@ -126,6 +187,7 @@
     card.appendChild(h("div", { class: "row" }, [btn]));
     card.appendChild(msg); card.appendChild(hint);
     if ((S.save.tries[t.id] || 0) >= 2 && nOk < t.answers.length) { hint.textContent = "Hint: " + HINTS[t.id]; hint.hidden = false; }
+    if (window.PassportViz) window.PassportViz.attach(card, t, nOk === t.answers.length);
     return card;
   }
 
@@ -139,14 +201,14 @@
       if (S.save.solved[key] != null) return;
       var canon = C.parseAnswer(inp.value);
       if (canon === null) { bad++; return; }
-      if (C.answerHash(window.PASSPORT_SALT, S.reg, t.id, i, canon) === a.h) {
+      if (C.answerHash(S.salt, S.reg, t.id, i, canon) === a.h) {
         S.save.solved[key] = canon; fresh++;
-        if (window.PassportLive) window.PassportLive.solved(key);
+        if (window.PassportLive && !S.open) window.PassportLive.solved(key);
       } else wrong++;
     });
     if (bad) { msg.className = "msg bad"; msg.textContent = "Enter each answer as a fraction like 3/4 or a terminating decimal like 0.75."; return; }
     if (wrong || fresh) S.save.tries[t.id] = (S.save.tries[t.id] || 0) + (wrong ? 1 : 0);
-    if (wrong && window.PassportLive) window.PassportLive.tries(t.id, S.save.tries[t.id]);
+    if (wrong && window.PassportLive && !S.open) window.PassportLive.tries(t.id, S.save.tries[t.id]);
     persist();
     var allOk = t.answers.every(function (a, i) { return S.save.solved[t.id + ":" + i] != null; });
     if (allOk) { showPeriod(t.period); var el = $("task-" + t.id); if (el) { var m = el.querySelector(".msg"); m.className = "msg ok"; m.textContent = "Confirmed. Your working and answer are saved."; } return; }
@@ -156,7 +218,7 @@
       t.answers.forEach(function (a, i) {
         if (S.save.solved[t.id + ":" + i] != null) { inputs[i].value = S.save.solved[t.id + ":" + i]; inputs[i].disabled = true; inputs[i].parentNode.classList.add("ok"); }
       });
-      buildTabs(); drawViz(); buildSubmit();
+      buildTabs(); drawViz(); drawLab(); drawAnim(); buildSubmit();
     }
     if ((S.save.tries[t.id] || 0) >= 2) { hint.textContent = "Hint: " + HINTS[t.id]; hint.hidden = false; }
     if ((S.save.tries[t.id] || 0) >= 4) hint.textContent += "   Still stuck? Show your working to your instructor.";
@@ -257,7 +319,7 @@
 
   /* ---------- submission ---------- */
   function submissionText() {
-    var out = ["CALCULUS PASSPORT SUBMISSION", "Register number: " + S.reg, "Created: " + new Date().toISOString(), ""];
+    var out = ["CALCULUS PASSPORT SUBMISSION", "Register number: " + S.reg].concat(S.open ? ["MODE: PRACTICE (not on the class list, not marked)", "Name: " + (S.name || "(not given)")].concat(S.email ? ["Email: " + S.email.email, "EMAIL-VERIFIED: yes", "EMAIL-TOKEN: " + S.email.token] : []) : []).concat(["Created: " + new Date().toISOString(), ""]);
     [1, 2, 3].forEach(function (p) {
       out.push("STAMP P" + p + " " + stampFor(p) + "   (" + solvedIn(p).length + "/" + partsOf(p).length + " answers confirmed)");
     });
@@ -268,6 +330,8 @@
       out.push("WORKING:"); out.push((S.save.work[t.id] || "(none)").replace(/\r/g, "")); out.push("");
     });
     out.push("BONUS PROBLEM:"); out.push(S.save.bonus || "(none)");
+    out.push("");
+    if (window.PassportLab) window.PassportLab.submissionLines(S.save).forEach(function (l) { out.push(l); });
     return out.join("\n");
   }
   function buildSubmit() {
@@ -288,7 +352,9 @@
         var blob = new Blob([submissionText()], { type: "text/plain" }), a = document.createElement("a");
         a.href = URL.createObjectURL(blob); a.download = "passport_" + S.reg + ".txt"; document.body.appendChild(a); a.click(); a.remove();
       } }),
-      h("button", { class: "ghost", text: "Print my problem sheet", onclick: function () { window.print(); } })]));
+      h("button", { class: "ghost", text: "Print my problem sheet", onclick: function () { window.print(); } }),
+      h("button", { class: "ghost", text: "Download my animated report", onclick: function () { if (window.PassportReport) window.PassportReport.download(labCtx()); } })]));
+    box.appendChild(h("div", { class: "small", style: "margin-top:6px", text: "Submit both files: the submission file (marked) and the animated report (a one-file replay of your own demonstration, readings and notebook)." }));
   }
 
   function buildSheet() {
@@ -308,8 +374,42 @@
     S.timer = setInterval(function () { S.left = Math.max(0, S.left - 1); $("clock").textContent = fmt(S.left); if (!S.left) { clearInterval(S.timer); S.timer = null; $("clockbtn").textContent = "Time is up"; } }, 1000);
   }
 
+  /* ---------- verified email (practice mode) ---------- */
+  (function authUi() {
+    var A = window.PassportAuth; if (!A || !A.enabled()) return;
+    var box = $("authbox"), msg = $("authmsg"), em = $("pemail"), sendB = $("sendlink"), finB = $("finishlink");
+    box.hidden = false;
+    function say(t, ok) { msg.textContent = t; msg.className = "msg " + (ok ? "ok" : "bad"); }
+    function refresh() {
+      var v = A.verified();
+      if (v) { say("Email verified: " + v.email, true); em.value = v.email; em.disabled = true; sendB.hidden = true; finB.hidden = true; }
+    }
+    sendB.addEventListener("click", function () {
+      sendB.disabled = true; say("Sending...", true);
+      A.send(em.value, { reg: $("reg").value, name: $("pname").value }).then(function (e) { say("Link sent to " + e + ". Open it from your inbox (check spam). It opens this page.", true); },
+        function (err) { say(err.message, false); }).then(function () { setTimeout(function () { sendB.disabled = false; }, 15000); });
+    });
+    function finish(email, oob) {
+      say("Confirming...", true);
+      A.complete(email, oob).then(function () {
+        refresh(); var p = A.pending();
+        $("openbox").open = true; say("Email verified. Now press \u201cOpen practice passport\u201d.", true);
+      }, function (err) { say(err.message, false); finB.hidden = false; });
+    }
+    var oob = A.linkInUrl();
+    if (oob) {
+      $("openbox").open = true;
+      var p = A.pending();
+      if (p && p.extra) { $("reg").value = p.extra.reg || ""; $("pname").value = p.extra.name || ""; }
+      if (p && p.email) { em.value = p.email; finish(p.email, oob); }
+      else { say("Type the same email address you used, then press \u201cFinish sign-in\u201d.", true); finB.hidden = false; sendB.hidden = true; }
+      finB.addEventListener("click", function () { finish(em.value, oob); });
+    } else refresh();
+  })();
+
   if (window.PassportLive && window.PassportLive.enabled()) $("livenote").hidden = false;
   $("go").addEventListener("click", login);
+  $("opengo").addEventListener("click", openLogin);
   $("reg").addEventListener("keydown", function (e) { if (e.key === "Enter") login(); });
   $("out").addEventListener("click", logout);
   $("clockbtn").addEventListener("click", toggleClock);
