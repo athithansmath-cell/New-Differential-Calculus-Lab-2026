@@ -18,6 +18,12 @@
     QUOTA_EXCEEDED: "Too many sign-in emails were sent today. Try again later or tell your teacher.",
     INVALID_OOB_CODE: "This sign-in link has already been used or is not valid. Ask for a new link.",
     EXPIRED_OOB_CODE: "This sign-in link has expired. Ask for a new link.",
+    CONFIGURATION_NOT_FOUND: "Firebase Authentication has not been set up in the project yet (Build > Authentication > Get started). Tell your teacher.",
+    API_KEY_INVALID: "The Web API key saved in the page (docs/config.js) is not accepted by Firebase. Teacher: copy it again from Firebase > Project settings > General > Web API key (starts with AIza, 39 characters).",
+    API_KEY_REFERRER_BLOCKED: "The Web API key is restricted to other web addresses. Teacher: in Google Cloud > APIs & Services > Credentials, allow athithansmath-cell.github.io/* for this key (or remove the restriction).",
+    API_KEY_SERVICE_BLOCKED: "The Web API key is not allowed to call Firebase sign-in. Teacher: in Google Cloud > Credentials, allow 'Identity Toolkit API' for this key and make sure that API is enabled.",
+    MISSING_CONTINUE_URI: "Sign-in link address missing. Reload the page and try again.",
+    INVALID_CONTINUE_URI: "This web address is not authorised in the Firebase project yet (Authentication > Settings > Authorized domains). Tell your teacher.",
     INVALID_EMAIL_LINK: "The email you typed is not the one the link was sent to."
   };
   function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
@@ -28,8 +34,16 @@
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
       if (x.ok) return x.j;
-      var code = String((x.j && x.j.error && x.j.error.message) || "ERROR").split(" ")[0];
-      var e = new Error(MSG[code] || "Sign-in failed (" + code + "). Try again or tell your teacher."); e.code = code; throw e;
+      var raw = String((x.j && x.j.error && x.j.error.message) || "ERROR");
+      var det = JSON.stringify((x.j && x.j.error && x.j.error.details) || "");
+      var all = raw + " " + det;
+      var code = raw.split(/[\s:]/)[0];
+      var text;
+      if (/API key not valid|API_KEY_INVALID|INVALID_API_KEY/i.test(all)) code = "API_KEY_INVALID";
+      else if (/referer|REFERRER/i.test(all)) code = "API_KEY_REFERRER_BLOCKED";
+      else if (/API_KEY_SERVICE_BLOCKED|SERVICE_BLOCKED|has not been used|accessNotConfigured|are blocked/i.test(all)) code = "API_KEY_SERVICE_BLOCKED";
+      text = MSG[code] || ("Sign-in failed (" + raw.slice(0, 90) + "). Tell your teacher this exact message.");
+      var e = new Error(text); e.code = code; e.raw = raw; throw e;
     }, function () { throw new Error("No internet connection. Connect and try again."); });
   }
   function normEmail(e) { return String(e || "").trim().toLowerCase(); }
@@ -42,6 +56,7 @@
 
   var api = {
     enabled: function () { return !!KEY; },
+    keyLooksValid: function () { return /^AIza[0-9A-Za-z_\-]{35}$/.test(KEY); },
     domains: function () { return DOMAINS.slice(); },
     normEmail: normEmail, allowed: allowed,
     /* returns {email, token, at} when this device already holds a verified email */
@@ -51,6 +66,7 @@
     send: function (email, extra) {
       email = normEmail(email);
       var bad = allowed(email); if (bad) return Promise.reject(new Error(bad));
+      if (!api.keyLooksValid()) { var ke = new Error(MSG.API_KEY_INVALID); ke.code = "API_KEY_INVALID"; return Promise.reject(ke); }
       return post("sendOobCode", { requestType: "EMAIL_SIGNIN", email: email, continueUrl: pageUrl(), canHandleCodeInApp: true }).then(function () {
         lsSet(LS_PENDING, { email: email, extra: extra || null, at: Date.now() });
         return email;

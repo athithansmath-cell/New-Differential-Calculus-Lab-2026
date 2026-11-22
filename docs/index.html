@@ -17,6 +17,11 @@
       <input id="reg" type="text" autocomplete="off" placeholder="e.g. RA2511001234567" style="flex:1;min-width:200px">
       <button id="go">Open my passport</button>
     </div>
+    <div id="dobrow" hidden style="margin-top:8px">
+      <label for="dob"><b>Date of birth</b> <span class="small">(DD/MM/YYYY)</span></label>
+      <input id="dob" type="text" autocomplete="off" inputmode="numeric" placeholder="e.g. 05/10/2005" style="width:100%;max-width:240px;margin-top:6px">
+      <div class="small">Your problems are locked with your register number and date of birth together, so nobody can open yours without both.</div>
+    </div>
     <div id="loginmsg" class="msg bad"></div>
     <p class="small" id="livenote" hidden>Live view is on: your teacher can see, as it happens, that you are logged in, which tasks you have confirmed and how many wrong tries you made. Only an anonymous code is sent, never your name, answers or working.</p>
     <details class="small" id="openbox" style="margin:8px 0">
@@ -60,6 +65,7 @@
 <script src="report.js"></script>
 <script src="viz.js"></script>
 <script src="auth.js"></script>
+<script src="discover.js"></script>
 <script src="open.js"></script>
 <script src="app.js"></script>
 </body>

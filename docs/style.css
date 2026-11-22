@@ -56,3 +56,12 @@ details.viz>summary{cursor:pointer;font-weight:600;color:var(--c)}
 .vzs{display:flex;gap:10px;align-items:center;margin:4px 0}.vzs input[type=range]{flex:1;accent-color:var(--c)}.vzl{min-width:130px}
 .vz canvas{touch-action:manipulation}
 @media print{details.viz{display:none!important}}
+
+/* Number Machine, worksheet blanks, observations */
+.disc { margin: 10px 0; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; }
+.disc canvas { width: 100%; max-width: 560px; height: auto; display: block; margin: 6px 0; }
+.readout { font-family: ui-monospace, Menlo, Consolas, monospace; padding: 6px 8px; border-radius: 8px; background: rgba(127,127,127,.12); margin: 4px 0; min-height: 1.4em; }
+.readout.snap { background: rgba(255,180,0,.25); font-weight: 600; }
+.blanks { margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.blanks .part label { white-space: normal; }
+@media print { .disc, .blanks button { display: none; } }

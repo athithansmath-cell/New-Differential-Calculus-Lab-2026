@@ -94,7 +94,31 @@
     return h.slice(0, 4) + "-" + h.slice(4);
   }
 
-  var api = { sha256: sha256, normReg: normReg, parseAnswer: parseAnswer, answerHash: answerHash, studentKey: studentKey, stamp: stamp };
+  /* ---- date of birth: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY or YYYY-MM-DD  ->  DDMMYYYY ('' if unreadable) ---- */
+  function normDob(d) {
+    d = String(d || "").trim(); var m, dd, mo, y;
+    if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/.exec(d))) { y = m[1]; mo = m[2]; dd = m[3]; }
+    else if ((m = /^(\d{1,2})[-\/. ](\d{1,2})[-\/. ](\d{4})$/.exec(d))) { dd = m[1]; mo = m[2]; y = m[3]; }
+    else return "";
+    if (+mo < 1 || +mo > 12 || +dd < 1 || +dd > 31) return "";
+    return ("0" + dd).slice(-2) + ("0" + mo).slice(-2) + y;
+  }
+  function identOf(reg, dob) { return dob ? reg + "|" + dob : reg; }
+
+  /* encrypted record {iv, ct} (AES-GCM, key = PBKDF2(register|DOB)) -> task list, or rejects when reg/DOB is wrong */
+  function b64(s) { var b = atob(s), u = new Uint8Array(b.length), i; for (i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function decryptRecord(salt, ident, rec) {
+    var sub = (root.crypto || {}).subtle;
+    if (!sub) return Promise.reject(new Error("nocrypto"));
+    var enc = new TextEncoder();
+    return sub.importKey("raw", enc.encode(ident), "PBKDF2", false, ["deriveKey"]).then(function (k) {
+      return sub.deriveKey({ name: "PBKDF2", salt: enc.encode(salt + "|enc"), iterations: 100000, hash: "SHA-256" }, k, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    }).then(function (key) {
+      return sub.decrypt({ name: "AES-GCM", iv: b64(rec.iv) }, key, b64(rec.ct));
+    }).then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); });
+  }
+
+  var api = { normDob: normDob, identOf: identOf, decryptRecord: decryptRecord, sha256: sha256, normReg: normReg, parseAnswer: parseAnswer, answerHash: answerHash, studentKey: studentKey, stamp: stamp };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.PassportCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
