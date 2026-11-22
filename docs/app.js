@@ -56,9 +56,9 @@
     msg.textContent = "";
     if (!window.PASSPORT) { msg.textContent = "data.js is missing. Ask your instructor."; return; }
     if (Date.now() < lockUntil) { msg.textContent = "Wait a few seconds before trying again."; return; }
-    var dob = needDob ? C.normDob($("dob").value) : "";
-    if (needDob && !dob) { msg.textContent = "Enter your date of birth as DD/MM/YYYY (for example 05/10/2005)."; return; }
-    var ident = C.identOf(reg, dob), rec = reg ? window.PASSPORT.students[C.studentKey(window.PASSPORT_SALT, ident)] : null;
+    var dob = C.normDob($("dob").value);
+    if (!dob) { msg.textContent = "Enter your date of birth as DD/MM/YYYY (for example 05/10/2005)."; return; }
+    var ident = needDob ? C.identOf(reg, dob) : reg, rec = reg ? window.PASSPORT.students[C.studentKey(window.PASSPORT_SALT, ident)] : null;
     function bad() { fails++; lockUntil = Date.now() + Math.min(30, fails * 3) * 1000; msg.textContent = needDob ? "Register number and date of birth do not match the class list. Check both, or use Practice mode below." : "This register number is not on the class list. Check it and try again, or use Practice mode below."; $("go").disabled = false; }
     if (!rec) { bad(); return; }
     $("go").disabled = true; msg.textContent = "Opening your passport...";
@@ -80,19 +80,19 @@
     var reg = C.normReg($("reg").value), msg = $("loginmsg");
     msg.textContent = "";
     if (!window.PassportOpen) { msg.textContent = "Practice mode is not available on this page."; return; }
-    if (!window.PassportOpen.validReg(reg)) { msg.textContent = "Type your register number or roll number first (letters and digits, 4 to 30 characters)."; return; }
-    if (window.PASSPORT && !window.PASSPORT.dob && window.PASSPORT.students[C.studentKey(window.PASSPORT_SALT, reg)]) { msg.textContent = "This number is on the class list. Use the button \u201cOpen my passport\u201d so your work is marked."; return; }
+    var name = ($("pname").value || "").replace(/[\r\n]+/g, " ").trim().slice(0, 60), dob = C.normDob($("pdob").value), mail = ($("pmail").value || "").trim().toLowerCase();
+    if (!window.PassportOpen.validReg(reg)) { msg.textContent = "Type your register number in the first box (letters and digits)."; return; }
+    if (!name) { msg.textContent = "Type your name."; return; }
+    if (!dob) { msg.textContent = "Type your date of birth as DD/MM/YYYY (for example 05/10/2005)."; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { msg.textContent = "Type a valid email address."; return; }
     var ver = null;
-    if (window.PassportAuth && window.PassportAuth.enabled()) {
-      ver = window.PassportAuth.verified();
-      if (!ver) { msg.textContent = "Verify your email first: type it in the box below and press \u201cSend me a sign-in link\u201d."; $("openbox").open = true; return; }
-    }
-    S.email = ver;
-    S.ident = null; S.dob = ""; S.reg = reg; S.open = true; S.salt = window.PassportOpen.OPEN_SALT; S.tasks = window.PassportOpen.make(reg);
-    S.name = ($("pname").value || "").replace(/[\r\n]+/g, " ").trim().slice(0, 60);
+    if (window.PassportAuth && window.PassportAuth.enabled()) { ver = window.PassportAuth.verified(); if (!ver) { msg.textContent = "Verify your email first."; $("authbox").hidden = false; return; } mail = ver.email; }
+    S.email = { email: mail, token: ver ? ver.token : null };
+    S.reg = reg; S.dob = dob; S.ident = C.identOf(reg, dob); S.open = true; S.salt = window.PassportOpen.OPEN_SALT; S.tasks = window.PassportOpen.make(S.ident);
+    S.name = name;
     load();
     $("login").hidden = true; $("app").hidden = false;
-    $("who").textContent = reg + " \u00b7 PRACTICE MODE";
+    $("who").textContent = reg + " \u00b7 PRACTICE";
     buildTabs(); showPeriod(1); buildSheet();
   }
   function logout() { stopAnim(); if (window.PassportViz) window.PassportViz.stopAll(); if (window.PassportLive && !S.open) window.PassportLive.stop(); S.open = false; S.reg = null; S.ident = null; S.dob = ""; S.tasks = null; if ($("dob")) $("dob").value = ""; $("app").hidden = true; $("login").hidden = false; $("reg").value = ""; clearInterval(S.timer); }
@@ -106,9 +106,10 @@
     return out;
   }
   function solvedIn(p) { return partsOf(p).filter(function (k) { return S.save.solved[k] != null; }); }
+  function stampId() { return (!S.open && S.dob && !(window.PASSPORT && window.PASSPORT.dob)) ? S.reg + "|" + S.dob : who(); }
   function stampFor(p) {
     var ent = solvedIn(p).map(function (k) { return k + "=" + S.save.solved[k]; });
-    return C.stamp(S.salt, who(), p, ent);
+    return C.stamp(S.salt, stampId(), p, ent);
   }
 
   function buildTabs() {
@@ -403,7 +404,7 @@
 
   /* ---------- submission ---------- */
   function submissionText() {
-    var out = ["CALCULUS PASSPORT SUBMISSION", "Register number: " + S.reg].concat(S.dob ? ["Date of birth: " + S.dob.slice(0, 2) + "/" + S.dob.slice(2, 4) + "/" + S.dob.slice(4)] : []).concat(S.open ? ["MODE: PRACTICE (not on the class list, not marked)", "Name: " + (S.name || "(not given)")].concat(S.email ? ["Email: " + S.email.email, "EMAIL-VERIFIED: yes", "EMAIL-TOKEN: " + S.email.token] : []) : []).concat(["Created: " + new Date().toISOString(), ""]);
+    var out = ["CALCULUS PASSPORT SUBMISSION", "Register number: " + S.reg].concat(S.dob ? ["Date of birth: " + S.dob.slice(0, 2) + "/" + S.dob.slice(2, 4) + "/" + S.dob.slice(4)] : []).concat(S.open ? ["MODE: PRACTICE (not on the class list, not marked)", "Name: " + (S.name || "(not given)")].concat(S.email ? ["Email: " + S.email.email].concat(S.email.token ? ["EMAIL-VERIFIED: yes", "EMAIL-TOKEN: " + S.email.token] : ["EMAIL-VERIFIED: no (typed by the student)"]) : []) : []).concat(["Created: " + new Date().toISOString(), ""]);
     [1, 2, 3].forEach(function (p) {
       out.push("STAMP P" + p + " " + stampFor(p) + "   (" + solvedIn(p).length + "/" + partsOf(p).length + " answers confirmed)");
     });
@@ -493,7 +494,7 @@
     } else refresh();
   })();
 
-  if (window.PASSPORT && window.PASSPORT.dob) $("dobrow").hidden = false;
+  $("dobrow").hidden = false;
   if (window.PassportLive && window.PassportLive.enabled()) $("livenote").hidden = false;
   $("go").addEventListener("click", login);
   $("opengo").addEventListener("click", openLogin);

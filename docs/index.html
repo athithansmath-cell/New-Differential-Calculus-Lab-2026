@@ -20,17 +20,18 @@
     <div id="dobrow" hidden style="margin-top:8px">
       <label for="dob"><b>Date of birth</b> <span class="small">(DD/MM/YYYY)</span></label>
       <input id="dob" type="text" autocomplete="off" inputmode="numeric" placeholder="e.g. 05/10/2005" style="width:100%;max-width:240px;margin-top:6px">
-      <div class="small">Your problems are locked with your register number and date of birth together, so nobody can open yours without both.</div>
+      <div class="small">Required. Your date of birth is written into your stamp and your submission file, and your teacher checks it against the official list.</div>
     </div>
     <div id="loginmsg" class="msg bad"></div>
     <p class="small" id="livenote" hidden>Live view is on: your teacher can see, as it happens, that you are logged in, which tasks you have confirmed and how many wrong tries you made. Only an anonymous code is sent, never your name, answers or working.</p>
     <details class="small" id="openbox" style="margin:8px 0">
-      <summary><b>Not on the class list? Practice mode</b></summary>
-      <p class="small">Type your register number or roll number in the box above, add your name if you like, and press the button below. You get your own set of the same 17 problems and the same visualisers. Practice mode is <b>not marked</b> and nothing is sent to the teacher's live view. Your work stays on this device.</p>
-      <div class="row"><input id="pname" type="text" autocomplete="off" placeholder="Your name (optional)" style="flex:1;min-width:200px"></div>
+      <summary><b>Open to any student: practice passport</b></summary>
+      <p class="small">Anyone can use this, whether or not they are on the class list. Fill in the four boxes. You get your own set of the same problems and visualisers, built from your register number and date of birth together, so your numbers differ from everyone else's. Not marked by the live view; submit the downloaded file to your teacher.</p>
+      <div class="row"><input id="pname" type="text" autocomplete="name" placeholder="Your name" style="flex:1;min-width:200px"></div>
+      <div class="row" style="margin-top:6px"><input id="pdob" type="text" inputmode="numeric" autocomplete="off" placeholder="Date of birth DD/MM/YYYY" style="flex:1;min-width:200px"></div>
+      <div class="row" style="margin-top:6px"><input id="pmail" type="text" inputmode="email" autocomplete="email" placeholder="Your email address" style="flex:1;min-width:200px"></div>
       <div id="authbox" hidden>
-        <p class="small"><b>Verify your email first.</b> Type your email, press the button, then open the link we email you (check spam). The link brings you back to this page. Your email is used only to confirm it is you and is written into the file you submit.</p>
-        <div class="row"><input id="pemail" type="text" inputmode="email" autocomplete="email" placeholder="Your email address" style="flex:1;min-width:200px"><button class="ghost" id="sendlink">Send me a sign-in link</button><button class="ghost" id="finishlink" hidden>Finish sign-in</button></div>
+        <div class="row"><input id="pemail" type="text"><button class="ghost" id="sendlink">Send</button><button class="ghost" id="finishlink" hidden>Finish</button></div>
         <div id="authmsg" class="msg" role="status"></div>
       </div>
       <div class="row" style="margin-top:6px"><button class="ghost" id="opengo">Open practice passport</button></div>

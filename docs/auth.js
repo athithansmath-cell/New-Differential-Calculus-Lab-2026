@@ -55,7 +55,7 @@
   function pageUrl() { return root.location.origin + root.location.pathname; }
 
   var api = {
-    enabled: function () { return !!KEY; },
+    enabled: function () { return !!KEY && cfg.verify === true; },
     keyLooksValid: function () { return /^AIza[0-9A-Za-z_\-]{35}$/.test(KEY); },
     domains: function () { return DOMAINS.slice(); },
     normEmail: normEmail, allowed: allowed,
