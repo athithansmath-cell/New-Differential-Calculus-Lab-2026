@@ -92,10 +92,11 @@
     S.name = name;
     load();
     $("login").hidden = true; $("app").hidden = false;
+    if (window.PassportLive) window.PassportLive.start(C.studentKey(S.salt, S.ident), S.save.solved, S.save.tries, { n: name, r: reg });
     $("who").textContent = reg + " \u00b7 PRACTICE";
     buildTabs(); showPeriod(1); buildSheet();
   }
-  function logout() { stopAnim(); if (window.PassportViz) window.PassportViz.stopAll(); if (window.PassportLive && !S.open) window.PassportLive.stop(); S.open = false; S.reg = null; S.ident = null; S.dob = ""; S.tasks = null; if ($("dob")) $("dob").value = ""; $("app").hidden = true; $("login").hidden = false; $("reg").value = ""; clearInterval(S.timer); }
+  function logout() { stopAnim(); if (window.PassportViz) window.PassportViz.stopAll(); if (window.PassportLive) window.PassportLive.stop(); S.open = false; S.reg = null; S.ident = null; S.dob = ""; S.tasks = null; if ($("dob")) $("dob").value = ""; $("app").hidden = true; $("login").hidden = false; $("reg").value = ""; clearInterval(S.timer); }
 
   /* ---------- progress ---------- */
   function partsOf(p) {
@@ -288,12 +289,12 @@
       if (canon === null) { bad++; return; }
       if (C.answerHash(S.salt, who(), t.id, i, canon) === a.h) {
         S.save.solved[key] = canon; fresh++;
-        if (window.PassportLive && !S.open) window.PassportLive.solved(key);
+        if (window.PassportLive) window.PassportLive.solved(key);
       } else wrong++;
     });
     if (bad) { msg.className = "msg bad"; msg.textContent = "Enter each answer as a fraction like 3/4 or a terminating decimal like 0.75."; return; }
     if (wrong || fresh) S.save.tries[t.id] = (S.save.tries[t.id] || 0) + (wrong ? 1 : 0);
-    if (wrong && window.PassportLive && !S.open) window.PassportLive.tries(t.id, S.save.tries[t.id]);
+    if (wrong && window.PassportLive) window.PassportLive.tries(t.id, S.save.tries[t.id]);
     persist();
     var allOk = t.answers.every(function (a, i) { return S.save.solved[t.id + ":" + i] != null; });
     if (allOk) { showPeriod(t.period); var el = $("task-" + t.id); if (el) { var m = el.querySelector(".msg"); m.className = "msg ok"; m.textContent = "Confirmed. Your working and answer are saved."; } return; }

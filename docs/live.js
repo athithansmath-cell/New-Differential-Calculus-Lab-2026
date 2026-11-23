@@ -1,16 +1,16 @@
 /* live.js - optional live reporting to a Firebase Realtime Database (REST, no SDK).
-   Sends only: an anonymous student code, online flag, confirmed part ids with server time,
-   and wrong-attempt counts per task. No names, no register numbers, no answers, no working. */
+   Roster students: sends only an anonymous student code, online flag, confirmed part ids with server time,
+   and wrong-attempt counts per task. No names, no answers, no working. Practice students (opt-in form) also send their name and register number, under /practice. */
 (function (root) {
   "use strict";
   var cfg = root.PASSPORT_LIVE || {};
   var base = String(cfg.url || "").replace(/\/+$/, "");
-  var key = null, hb = null, SV = { ".sv": "timestamp" };
+  var key = null, pre = "live", hb = null, SV = { ".sv": "timestamp" };
 
   function send(path, method, body) {
     if (!base || !key) return;
     try {
-      root.fetch(base + "/live/" + key + path + ".json", {
+      root.fetch(base + "/" + pre + "/" + key + path + ".json", {
         method: method, headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body), keepalive: true
       }).catch(function () {});
@@ -19,13 +19,16 @@
 
   var api = {
     enabled: function () { return !!base; },
-    start: function (k, solved, tries) {
+    start: function (k, solved, tries, meta) {
       if (!base) return;
-      key = k;
+      if (meta && cfg.practice === false) return;
+      key = k; pre = meta ? "practice" : "live";
       var s = {}, w = {}, id;
       for (id in solved) if (solved[id] != null) s[id] = SV;
       for (id in tries) if (tries[id]) w[id] = tries[id];
-      send("", "PATCH", { t: SV, o: 1, s: s, w: w });
+      var first = { t: SV, o: 1, s: s, w: w };
+      if (meta) { first.n = String(meta.n || "").slice(0, 60); first.r = String(meta.r || "").slice(0, 30); }
+      send("", "PATCH", first);
       clearInterval(hb);
       hb = setInterval(function () { send("", "PATCH", { t: SV, o: 1 }); }, 30000);
       if (root.addEventListener) root.addEventListener("pagehide", api.stop);
