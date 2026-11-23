@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teacher live view</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d2433;--mute:#6b7385;--line:#e2ddd0;--ok:#1d7a46;--part:#d9a21b;--stuck:#c0392b;--none:#d8d5cc;--acc:#b4442b}
+@media (prefers-color-scheme:dark){:root{--bg:#14171f;--card:#1c212c;--ink:#ecebe6;--mute:#9aa3b5;--line:#2c3342;--ok:#3fb27a;--part:#e0b13a;--stuck:#ef6a5b;--none:#3a4152;--acc:#e2765c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+.wrap{max-width:1250px;margin:0 auto;padding:16px}
+h1{font:700 1.5rem Georgia,serif;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{flex:1;min-width:140px}.stat b{display:block;font-size:1.8rem;line-height:1.1}.stat span{color:var(--mute);font-size:.85rem}
+input,select,button{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 10px}button{cursor:pointer}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.small{color:var(--mute);font-size:.85rem}
+table{border-collapse:collapse;width:100%}th,td{padding:3px 5px;text-align:center;font-size:.8rem}td.n,th.n{text-align:left;white-space:nowrap}
+th{color:var(--mute);font-weight:600;position:sticky;top:0;background:var(--card)}
+.cell{display:inline-block;width:20px;height:20px;border-radius:5px;background:var(--none)}
+.cell.ok{background:var(--ok)}.cell.part{background:var(--part)}.cell.stuck{background:var(--stuck)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--none)}.dot.on{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.status{font-size:.85rem}.status.bad{color:var(--stuck)}.status.good{color:var(--ok)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:900px){.cols{grid-template-columns:1fr}}
+ol,ul{margin:0;padding-left:1.2em}li{margin:2px 0}
+.scroll{overflow:auto;max-height:70vh}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Passport live dashboard</h1>
+  <div class="row small">
+    <span id="conn" class="status">not connected</span>
+    <input id="url" size="62" placeholder="Firebase Realtime Database URL">
+    <button id="connect">Connect</button>
+    <label>Stuck at <input id="thr" type="number" min="1" value="4" style="width:56px"> wrong tries</label>
+  </div>
+  <div class="card" id="rosterbox" hidden>
+    <div class="row small"><b>Roster</b> <span id="rstat"></span>
+      <label class="small">Load roster file <input type="file" id="rfile" accept=".json,application/json"></label>
+      <button id="rclear">Forget roster on this device</button></div>
+    <div class="small">The roster (names) stays only in this browser; it is not stored on the web page. Until you load it, roster students show as "Student abcd".</div>
+  </div>
+  <div class="card"><div class="stats" id="stats"></div></div>
+  <div class="card"><h2>Progress by task</h2>
+    <div class="row small" style="margin-bottom:8px">Sort
+      <select id="sort"><option value="roster">roster order</option><option value="done">most confirmed</option><option value="name">name</option><option value="seen">last active</option></select>
+      <span><span class="cell ok" style="width:12px;height:12px"></span> done &nbsp;<span class="cell part" style="width:12px;height:12px"></span> partly &nbsp;<span class="cell stuck" style="width:12px;height:12px"></span> stuck &nbsp;<span class="cell" style="width:12px;height:12px"></span> not started</span>
+    </div>
+    <div class="scroll"><table id="grid"></table></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h2>Needs you now</h2><div id="stuck" class="small"></div></div>
+    <div class="card"><h2>Leaderboard <label class="small" style="font-weight:400"><input type="checkbox" id="names"> show names</label></h2><div id="board"></div></div>
+  </div>
+  <div class="card"><h2>Practice students (open to anyone) <span class="small" id="pcount"></span></h2>
+    <div class="scroll"><table id="pgrid"></table></div>
+    <div class="small">Name and register number are typed by the students themselves. Not marked; they submit files like everyone else.</div>
+  </div>
+  <p class="small">This dashboard is for watching, not marking. Final marks come from <code>tools/verify.py</code> on the submitted files.</p>
+</div>
+<script>
+var ROSTER = /*ROSTER*/{}/*END*/;
+var PUBLIC_PAGE = true;
+try { var sr = JSON.parse(localStorage.getItem("passport-roster") || "null"); if (sr && !Object.keys(ROSTER).length) ROSTER = sr; } catch (e) {}
+function allKeys() { var o = {}; Object.keys(ROSTER).forEach(function (k) { o[k] = 1; }); Object.keys(db || {}).forEach(function (k) { if (db[k] && typeof db[k] === "object") o[k] = 1; }); return Object.keys(o); }
+function nm(key) { return (ROSTER[key] || [0, "Student " + key.slice(0, 4)])[1]; }     // student code -> [register number, name]
+var TASKS = {"1.0": 5, "1.1": 1, "1.2": 2, "1.3": 1, "1.4": 1, "1.5": 1, "2.1": 2, "2.2": 1, "2.3": 2, "2.4": 1, "2.5": 2, "2.6": 2, "3.1": 2, "3.2": 1, "3.3": 1, "3.4": 2, "3.5": 2, "3.6": 2};       // task id -> number of answer parts
+var DEFAULT_URL = "https://calculus-passport-default-rtdb.asia-southeast1.firebasedatabase.app";
+var ONLINE_MS = 90000;
+var db = {}, pdb = {}, es = null, es2 = null, timer = null;
+var TOTAL = Object.keys(TASKS).reduce(function (s, k) { return s + TASKS[k]; }, 0);
+var ids = Object.keys(TASKS).sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+function $(i) { return document.getElementById(i); }
+
+/* ---- Firebase REST stream ---- */
+function setAt(path, data, isP) {
+  var parts = path.split("/").filter(Boolean);
+  if (!parts.length) { if (isP) pdb = data || {}; else db = data || {}; return; }
+  var o = isP ? pdb : db, i;
+  if (isP && typeof pdb !== "object") pdb = {};
+  for (i = 0; i < parts.length - 1; i++) { if (typeof o[parts[i]] !== "object" || o[parts[i]] === null) o[parts[i]] = {}; o = o[parts[i]]; }
+  if (data === null || data === undefined) delete o[parts[parts.length - 1]]; else o[parts[parts.length - 1]] = data;
+}
+function onEvent(kind, msg, isP) {
+  if (kind === "put") setAt(msg.path, msg.data, isP);
+  else if (kind === "patch") Object.keys(msg.data || {}).forEach(function (k) { setAt((msg.path === "/" ? "" : msg.path) + "/" + k, msg.data[k], isP); });
+  schedule();
+}
+function connect() {
+  var url = $("url").value.trim().replace(/\/+$/, "");
+  if (!url) return;
+  try { localStorage.setItem("passport-dash-url", url); } catch (e) {}
+  if (es) es.close();
+  db = {}; pdb = {};
+  if (es2) es2.close();
+  es2 = new EventSource(url + "/practice.json");
+  ["put", "patch"].forEach(function (k) { es2.addEventListener(k, function (e) { try { onEvent(k, JSON.parse(e.data), true); } catch (x) {} }); });
+  es = new EventSource(url + "/live.json");
+  es.addEventListener("open", function () { $("conn").textContent = "connected, live"; $("conn").className = "status good"; });
+  es.addEventListener("error", function () { $("conn").textContent = "connection lost, retrying"; $("conn").className = "status bad"; });
+  ["put", "patch"].forEach(function (k) { es.addEventListener(k, function (e) { try { onEvent(k, JSON.parse(e.data)); } catch (x) {} }); });
+  es.addEventListener("auth_revoked", function () { $("conn").textContent = "database rules refuse reading"; $("conn").className = "status bad"; });
+}
+
+/* ---- derived data ---- */
+function stateOf(key, src) {
+  var d = (src || db)[key] || {}, s = d.s || {}, w = d.w || {}, thr = Number($("thr").value) || 4, cells = {}, done = 0, last = 0, stuck = [];
+  ids.forEach(function (id) {
+    var n = 0, i;
+    for (i = 0; i < TASKS[id]; i++) if (s[id + ":" + i] != null) { n++; if (typeof s[id + ":" + i] === "number" && s[id + ":" + i] > last) last = s[id + ":" + i]; }
+    done += n;
+    var tries = w[id] || 0;
+    cells[id] = n === TASKS[id] ? "ok" : (tries >= thr ? "stuck" : (n > 0 ? "part" : ""));
+    if (n < TASKS[id] && tries >= thr) stuck.push({ id: id, tries: tries });
+  });
+  var seen = typeof d.t === "number" ? d.t : 0;
+  return { cells: cells, done: done, last: last, seen: seen, online: d.o === 1 && Date.now() - seen < ONLINE_MS, started: !!d.t, stuck: stuck };
+}
+function label(key, show) {
+  var r = ROSTER[key] || [key.slice(0, 4), "Student " + key.slice(0, 4)];
+  return show ? r[1] : "…" + r[0].slice(-4);
+}
+
+/* ---- rendering ---- */
+var pending = 0;
+function schedule() { if (!pending) pending = setTimeout(function () { pending = 0; render(); }, 250); }
+function render() {
+  var keys = allKeys(), st = {}, n = keys.length, k;
+  keys.forEach(function (key) { st[key] = stateOf(key); });
+  var on = 0, started = 0, finished = 0;
+  keys.forEach(function (key) { if (st[key].online) on++; if (st[key].done > 0) started++; if (st[key].done === TOTAL) finished++; });
+  var avg = n ? keys.reduce(function (s, key) { return s + st[key].done; }, 0) / n : 0;
+  $("stats").innerHTML = [[on, "logged in now"], [started + " / " + n, "started"], [finished, "finished everything"], [Math.round(100 * avg / TOTAL) + "%", "class average"]]
+    .map(function (x) { return '<div class="stat"><b>' + x[0] + "</b><span>" + x[1] + "</span></div>"; }).join("");
+  var order = keys.slice(), mode = $("sort").value;
+  if (mode === "done") order.sort(function (a, b) { return st[b].done - st[a].done; });
+  if (mode === "name") order.sort(function (a, b) { return nm(a).localeCompare(nm(b)); });
+  if (mode === "seen") order.sort(function (a, b) { return st[b].seen - st[a].seen; });
+  var head = '<tr><th></th><th class="n">Student</th>' + ids.map(function (id) { return "<th>" + id + "</th>"; }).join("") + "<th>Done</th></tr>";
+  $("grid").innerHTML = head + order.map(function (key) {
+    var s = st[key];
+    return '<tr><td><span class="dot' + (s.online ? " on" : "") + '"></span></td><td class="n">' + esc(nm(key)) + "</td>" +
+      ids.map(function (id) { return '<td><span class="cell ' + s.cells[id] + '" title="' + id + '"></span></td>'; }).join("") +
+      "<td>" + s.done + "/" + TOTAL + "</td></tr>";
+  }).join("");
+  var pk = Object.keys(pdb || {}), pids = ids.filter(function (id) { return /^1\.[1-5]$/.test(id); });
+  pk.sort(function (a, b) { return String((pdb[a] || {}).n || "").localeCompare(String((pdb[b] || {}).n || "")); });
+  $("pcount").textContent = pk.length ? "(" + pk.filter(function (key) { return stateOf(key, pdb).online; }).length + " online of " + pk.length + ")" : "";
+  $("pgrid").innerHTML = pk.length ? '<tr><th></th><th class="n">Name</th><th class="n">Register no.</th>' + pids.map(function (id) { return "<th>" + id + "</th>"; }).join("") + "</tr>" +
+    pk.map(function (key) {
+      var s = stateOf(key, pdb), d = pdb[key] || {};
+      return '<tr><td><span class="dot' + (s.online ? " on" : "") + '"></span></td><td class="n">' + esc(d.n || "?") + '</td><td class="n">' + esc(d.r || "?") + "</td>" +
+        pids.map(function (id) { return '<td><span class="cell ' + (s.cells[id] || "") + '"></span></td>'; }).join("") + "</tr>";
+    }).join("") : '<tr><td class="small">Nobody is in practice mode yet.</td></tr>';
+  var stuckList = [];
+  keys.forEach(function (key) { st[key].stuck.forEach(function (x) { stuckList.push({ key: key, id: x.id, tries: x.tries, on: st[key].online }); }); });
+  stuckList.sort(function (a, b) { return b.tries - a.tries; });
+  $("stuck").innerHTML = stuckList.length ? "<ul>" + stuckList.slice(0, 15).map(function (x) {
+    return "<li><b>" + esc(nm(x.key)) + "</b> · task " + x.id + " · " + x.tries + " wrong tries" + (x.on ? "" : " (offline)") + "</li>";
+  }).join("") + "</ul>" : "Nobody is stuck right now.";
+  var show = $("names").checked;
+  var rank = keys.filter(function (key) { return st[key].done > 0; }).sort(function (a, b) {
+    return st[b].done - st[a].done || st[a].last - st[b].last;
+  }).slice(0, 10);
+  $("board").innerHTML = rank.length ? "<ol>" + rank.map(function (key) {
+    return "<li><b>" + esc(label(key, show)) + "</b> · " + st[key].done + "/" + TOTAL + " confirmed</li>";
+  }).join("") + "</ol>" : '<span class="small">Nobody has confirmed an answer yet.</span>';
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+if (PUBLIC_PAGE) {
+  $("rosterbox").hidden = false;
+  var rs = function () { $("rstat").textContent = Object.keys(ROSTER).length ? "loaded: " + Object.keys(ROSTER).length + " students" : "not loaded"; };
+  rs();
+  $("rfile").addEventListener("change", function (e) { var f = e.target.files[0]; if (!f) return; var fr = new FileReader(); fr.onload = function () { try { var o = JSON.parse(fr.result); if (typeof o !== "object" || Array.isArray(o)) throw 0; ROSTER = o; localStorage.setItem("passport-roster", JSON.stringify(o)); rs(); render(); } catch (x) { $("rstat").textContent = "that is not a roster file"; } }; fr.readAsText(f); });
+  $("rclear").addEventListener("click", function () { try { localStorage.removeItem("passport-roster"); } catch (e) {} ROSTER = {}; rs(); render(); });
+}
+$("connect").addEventListener("click", connect);
+["sort", "names", "thr"].forEach(function (i) { $(i).addEventListener("change", render); });
+var saved = ""; try { saved = localStorage.getItem("passport-dash-url") || ""; } catch (e) {}
+$("url").value = saved || DEFAULT_URL;
+render();
+timer = setInterval(render, 10000);   // re-evaluates who is still online
+if ($("url").value) connect();
+</script>
+</body>
+</html>
