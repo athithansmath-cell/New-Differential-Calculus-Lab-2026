@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exam-Ready Practice</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+.qcard{border-left:4px solid var(--c,var(--accent))}
+.qcard.done{border-left-color:var(--ok)}
+.qtext{font-size:1.02rem;line-height:1.5;margin:6px 0 10px;white-space:pre-wrap}
+.why dt{font-weight:600;margin-top:8px}.why dd{margin:2px 0 0 0;color:var(--mute)}
+.tabs2{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.tabs2 button{padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.tabs2 button.on{outline:2px solid var(--accent)}
+.tabs2 button.full{background:rgba(30,120,70,.15)}
+.timer{font-variant-numeric:tabular-nums;font-weight:600}
+.weak li{margin:3px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Exam-Ready Practice</h1>
+  <p class="sub">Ten tasks that cover every topic of the course: matrices, differential equations, curves, functions of several variables, sequences and series. Your numbers come from your register number and date of birth, so they are yours alone. Work on paper, type only the final numbers. The page tells you whether each one matches, never the answer.</p>
+
+  <div id="login" class="card">
+    <div class="row"><input id="reg" type="text" placeholder="Register number" autocomplete="off" style="flex:1;min-width:200px"></div>
+    <div class="row" style="margin-top:6px"><input id="nm" type="text" placeholder="Your name" autocomplete="name" style="flex:1;min-width:200px"></div>
+    <div class="row" style="margin-top:6px"><input id="dob" type="text" placeholder="Date of birth DD/MM/YYYY" inputmode="numeric" autocomplete="off" style="flex:1;min-width:200px"></div>
+    <div class="row" style="margin-top:6px"><input id="mail" type="text" placeholder="Email address" inputmode="email" autocomplete="email" style="flex:1;min-width:200px"></div>
+    <div class="row" style="margin-top:10px"><button id="go">Start my practice</button></div>
+    <div id="msg" class="msg bad" role="status"></div>
+    <p class="small">Open to any student. Anyone using the same register number and date of birth gets the same questions, so keep them to yourself. Progress is saved on this device.</p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="card">
+      <div class="row"><b id="who"></b><span class="small" id="overall"></span></div>
+      <div class="bar"><i id="obar"></i></div>
+      <div class="tabs2" id="tabs"></div>
+      <div class="row"><button class="ghost" id="dl">Download my submission</button><button class="ghost" id="out">Log out</button></div>
+    </div>
+    <div id="panel"></div>
+  </div>
+</div>
+<script src="../core.js"></script>
+<script src="meta.js"></script>
+<script src="exam.js"></script>
+</body>
+</html>
