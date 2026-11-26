@@ -1,4 +1,4 @@
-EXAM-READY PRACTICE (open to any student)
-Link after upload: https://athithansmath-cell.github.io/New-Differential-Calculus-Lab-2026/exam/index.html
-Upload the whole folder docs/exam/ (index.html, exam.js, meta.js, data/t1.js ... t9.js) into docs/exam/ on GitHub.
-Nothing else changes. Do NOT upload anything from the private/ folder.
+TWO EXAM PAGES (both open to any student, both with a 60-minute mock exam)
+Plain (no pictures):  .../exam/index.html
+With visuals:         .../visual/index.html   (labs, pictures under every question)
+Upload the folders docs/exam/ (incl. data/) and docs/visual/ . Do NOT upload private/.

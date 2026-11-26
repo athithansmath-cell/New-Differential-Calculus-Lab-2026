@@ -32,7 +32,7 @@ ol,ul{margin:0;padding-left:1.2em}li{margin:2px 0}
   <div class="row small">
     <span id="conn" class="status">not connected</span>
     <input id="url" size="62" placeholder="Firebase Realtime Database URL">
-    <button id="connect">Connect</button>
+    <button id="connect">Connect</button> <a href="exam-live.html" class="small">Exam pages live view &rarr;</a>
     <label>Stuck at <input id="thr" type="number" min="1" value="4" style="width:56px"> wrong tries</label>
   </div>
   <div class="card" id="rosterbox" hidden>
@@ -87,20 +87,28 @@ function onEvent(kind, msg, isP) {
   else if (kind === "patch") Object.keys(msg.data || {}).forEach(function (k) { setAt((msg.path === "/" ? "" : msg.path) + "/" + k, msg.data[k], isP); });
   schedule();
 }
+var pollT = null;
+function why(st) {
+  if (st === 401 || st === 403) return "Firebase refuses reading: in Firebase > Realtime Database > Rules paste the file firebase/database.rules.json and press Publish.";
+  if (st === 404) return "Database address not found: check the address in the box.";
+  return "Firebase answered " + st + ".";
+}
+function fetchJ(u) {
+  return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) { var e = new Error(why(r.status)); e.status = r.status; throw e; } return r.json(); });
+}
 function connect() {
   var url = $("url").value.trim().replace(/\/+$/, "");
   if (!url) return;
   try { localStorage.setItem("passport-dash-url", url); } catch (e) {}
-  if (es) es.close();
-  db = {}; pdb = {};
-  if (es2) es2.close();
-  es2 = new EventSource(url + "/practice.json");
-  ["put", "patch"].forEach(function (k) { es2.addEventListener(k, function (e) { try { onEvent(k, JSON.parse(e.data), true); } catch (x) {} }); });
-  es = new EventSource(url + "/live.json");
-  es.addEventListener("open", function () { $("conn").textContent = "connected, live"; $("conn").className = "status good"; });
-  es.addEventListener("error", function () { $("conn").textContent = "connection lost, retrying"; $("conn").className = "status bad"; });
-  ["put", "patch"].forEach(function (k) { es.addEventListener(k, function (e) { try { onEvent(k, JSON.parse(e.data)); } catch (x) {} }); });
-  es.addEventListener("auth_revoked", function () { $("conn").textContent = "database rules refuse reading"; $("conn").className = "status bad"; });
+  if (es) { es.close(); es = null; } if (es2) { es2.close(); es2 = null; } clearInterval(pollT);
+  function tick() {
+    Promise.all([fetchJ(url + "/live.json"), fetchJ(url + "/practice.json").catch(function (e) { if (e.status === 401 || e.status === 403) return null; throw e; })]).then(function (a) {
+      db = a[0] || {}; pdb = a[1] || {}; $("conn").textContent = "live, updated " + new Date().toLocaleTimeString(); $("conn").className = "status good"; render();
+    }).catch(function (e) {
+      $("conn").textContent = (e.status ? e.message : "cannot reach Firebase: check the internet, or an ad-blocker / school filter blocking firebasedatabase.app") + " (retrying)"; $("conn").className = "status bad";
+    });
+  }
+  tick(); pollT = setInterval(tick, 6000);
 }
 
 /* ---- derived data ---- */

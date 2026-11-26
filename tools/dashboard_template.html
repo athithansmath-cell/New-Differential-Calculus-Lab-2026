@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Passport live dashboard</title>
 <style>
@@ -31,8 +32,14 @@ ol,ul{margin:0;padding-left:1.2em}li{margin:2px 0}
   <div class="row small">
     <span id="conn" class="status">not connected</span>
     <input id="url" size="62" placeholder="Firebase Realtime Database URL">
-    <button id="connect">Connect</button>
+    <button id="connect">Connect</button> <a href="exam-live.html" class="small">Exam pages live view &rarr;</a>
     <label>Stuck at <input id="thr" type="number" min="1" value="4" style="width:56px"> wrong tries</label>
+  </div>
+  <div class="card" id="rosterbox" hidden>
+    <div class="row small"><b>Roster</b> <span id="rstat"></span>
+      <label class="small">Load roster file <input type="file" id="rfile" accept=".json,application/json"></label>
+      <button id="rclear">Forget roster on this device</button></div>
+    <div class="small">The roster (names) stays only in this browser; it is not stored on the web page. Until you load it, roster students show as "Student abcd".</div>
   </div>
   <div class="card"><div class="stats" id="stats"></div></div>
   <div class="card"><h2>Progress by task</h2>
@@ -46,47 +53,67 @@ ol,ul{margin:0;padding-left:1.2em}li{margin:2px 0}
     <div class="card"><h2>Needs you now</h2><div id="stuck" class="small"></div></div>
     <div class="card"><h2>Leaderboard <label class="small" style="font-weight:400"><input type="checkbox" id="names"> show names</label></h2><div id="board"></div></div>
   </div>
+  <div class="card"><h2>Practice students (open to anyone) <span class="small" id="pcount"></span></h2>
+    <div class="scroll"><table id="pgrid"></table></div>
+    <div class="small">Name and register number are typed by the students themselves. Not marked; they submit files like everyone else.</div>
+  </div>
   <p class="small">This dashboard is for watching, not marking. Final marks come from <code>tools/verify.py</code> on the submitted files.</p>
 </div>
 <script>
-var ROSTER = /*ROSTER*/{}/*END*/;     // student code -> [register number, name]
+var ROSTER = /*ROSTER*/{}/*END*/;
+var PUBLIC_PAGE = /*PUBLIC*/false/*END*/;
+try { var sr = JSON.parse(localStorage.getItem("passport-roster") || "null"); if (sr && !Object.keys(ROSTER).length) ROSTER = sr; } catch (e) {}
+function allKeys() { var o = {}; Object.keys(ROSTER).forEach(function (k) { o[k] = 1; }); Object.keys(db || {}).forEach(function (k) { if (db[k] && typeof db[k] === "object") o[k] = 1; }); return Object.keys(o); }
+function nm(key) { return (ROSTER[key] || [0, "Student " + key.slice(0, 4)])[1]; }     // student code -> [register number, name]
 var TASKS = /*TASKS*/{}/*END*/;       // task id -> number of answer parts
 var DEFAULT_URL = "/*URL*/";
 var ONLINE_MS = 90000;
-var db = {}, es = null, timer = null;
+var db = {}, pdb = {}, es = null, es2 = null, timer = null;
 var TOTAL = Object.keys(TASKS).reduce(function (s, k) { return s + TASKS[k]; }, 0);
 var ids = Object.keys(TASKS).sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
 function $(i) { return document.getElementById(i); }
 
 /* ---- Firebase REST stream ---- */
-function setAt(path, data) {
+function setAt(path, data, isP) {
   var parts = path.split("/").filter(Boolean);
-  if (!parts.length) { db = data || {}; return; }
-  var o = db, i;
+  if (!parts.length) { if (isP) pdb = data || {}; else db = data || {}; return; }
+  var o = isP ? pdb : db, i;
+  if (isP && typeof pdb !== "object") pdb = {};
   for (i = 0; i < parts.length - 1; i++) { if (typeof o[parts[i]] !== "object" || o[parts[i]] === null) o[parts[i]] = {}; o = o[parts[i]]; }
   if (data === null || data === undefined) delete o[parts[parts.length - 1]]; else o[parts[parts.length - 1]] = data;
 }
-function onEvent(kind, msg) {
-  if (kind === "put") setAt(msg.path, msg.data);
-  else if (kind === "patch") Object.keys(msg.data || {}).forEach(function (k) { setAt((msg.path === "/" ? "" : msg.path) + "/" + k, msg.data[k]); });
+function onEvent(kind, msg, isP) {
+  if (kind === "put") setAt(msg.path, msg.data, isP);
+  else if (kind === "patch") Object.keys(msg.data || {}).forEach(function (k) { setAt((msg.path === "/" ? "" : msg.path) + "/" + k, msg.data[k], isP); });
   schedule();
+}
+var pollT = null;
+function why(st) {
+  if (st === 401 || st === 403) return "Firebase refuses reading: in Firebase > Realtime Database > Rules paste the file firebase/database.rules.json and press Publish.";
+  if (st === 404) return "Database address not found: check the address in the box.";
+  return "Firebase answered " + st + ".";
+}
+function fetchJ(u) {
+  return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) { var e = new Error(why(r.status)); e.status = r.status; throw e; } return r.json(); });
 }
 function connect() {
   var url = $("url").value.trim().replace(/\/+$/, "");
   if (!url) return;
   try { localStorage.setItem("passport-dash-url", url); } catch (e) {}
-  if (es) es.close();
-  db = {};
-  es = new EventSource(url + "/live.json");
-  es.addEventListener("open", function () { $("conn").textContent = "connected, live"; $("conn").className = "status good"; });
-  es.addEventListener("error", function () { $("conn").textContent = "connection lost, retrying"; $("conn").className = "status bad"; });
-  ["put", "patch"].forEach(function (k) { es.addEventListener(k, function (e) { try { onEvent(k, JSON.parse(e.data)); } catch (x) {} }); });
-  es.addEventListener("auth_revoked", function () { $("conn").textContent = "database rules refuse reading"; $("conn").className = "status bad"; });
+  if (es) { es.close(); es = null; } if (es2) { es2.close(); es2 = null; } clearInterval(pollT);
+  function tick() {
+    Promise.all([fetchJ(url + "/live.json"), fetchJ(url + "/practice.json").catch(function (e) { if (e.status === 401 || e.status === 403) return null; throw e; })]).then(function (a) {
+      db = a[0] || {}; pdb = a[1] || {}; $("conn").textContent = "live, updated " + new Date().toLocaleTimeString(); $("conn").className = "status good"; render();
+    }).catch(function (e) {
+      $("conn").textContent = (e.status ? e.message : "cannot reach Firebase: check the internet, or an ad-blocker / school filter blocking firebasedatabase.app") + " (retrying)"; $("conn").className = "status bad";
+    });
+  }
+  tick(); pollT = setInterval(tick, 6000);
 }
 
 /* ---- derived data ---- */
-function stateOf(key) {
-  var d = db[key] || {}, s = d.s || {}, w = d.w || {}, thr = Number($("thr").value) || 4, cells = {}, done = 0, last = 0, stuck = [];
+function stateOf(key, src) {
+  var d = (src || db)[key] || {}, s = d.s || {}, w = d.w || {}, thr = Number($("thr").value) || 4, cells = {}, done = 0, last = 0, stuck = [];
   ids.forEach(function (id) {
     var n = 0, i;
     for (i = 0; i < TASKS[id]; i++) if (s[id + ":" + i] != null) { n++; if (typeof s[id + ":" + i] === "number" && s[id + ":" + i] > last) last = s[id + ":" + i]; }
@@ -99,7 +126,7 @@ function stateOf(key) {
   return { cells: cells, done: done, last: last, seen: seen, online: d.o === 1 && Date.now() - seen < ONLINE_MS, started: !!d.t, stuck: stuck };
 }
 function label(key, show) {
-  var r = ROSTER[key] || ["?", "unknown code"];
+  var r = ROSTER[key] || [key.slice(0, 4), "Student " + key.slice(0, 4)];
   return show ? r[1] : "…" + r[0].slice(-4);
 }
 
@@ -107,7 +134,7 @@ function label(key, show) {
 var pending = 0;
 function schedule() { if (!pending) pending = setTimeout(function () { pending = 0; render(); }, 250); }
 function render() {
-  var keys = Object.keys(ROSTER), st = {}, n = keys.length, k;
+  var keys = allKeys(), st = {}, n = keys.length, k;
   keys.forEach(function (key) { st[key] = stateOf(key); });
   var on = 0, started = 0, finished = 0;
   keys.forEach(function (key) { if (st[key].online) on++; if (st[key].done > 0) started++; if (st[key].done === TOTAL) finished++; });
@@ -116,20 +143,29 @@ function render() {
     .map(function (x) { return '<div class="stat"><b>' + x[0] + "</b><span>" + x[1] + "</span></div>"; }).join("");
   var order = keys.slice(), mode = $("sort").value;
   if (mode === "done") order.sort(function (a, b) { return st[b].done - st[a].done; });
-  if (mode === "name") order.sort(function (a, b) { return ROSTER[a][1].localeCompare(ROSTER[b][1]); });
+  if (mode === "name") order.sort(function (a, b) { return nm(a).localeCompare(nm(b)); });
   if (mode === "seen") order.sort(function (a, b) { return st[b].seen - st[a].seen; });
   var head = '<tr><th></th><th class="n">Student</th>' + ids.map(function (id) { return "<th>" + id + "</th>"; }).join("") + "<th>Done</th></tr>";
   $("grid").innerHTML = head + order.map(function (key) {
     var s = st[key];
-    return '<tr><td><span class="dot' + (s.online ? " on" : "") + '"></span></td><td class="n">' + esc(ROSTER[key][1]) + "</td>" +
+    return '<tr><td><span class="dot' + (s.online ? " on" : "") + '"></span></td><td class="n">' + esc(nm(key)) + "</td>" +
       ids.map(function (id) { return '<td><span class="cell ' + s.cells[id] + '" title="' + id + '"></span></td>'; }).join("") +
       "<td>" + s.done + "/" + TOTAL + "</td></tr>";
   }).join("");
+  var pk = Object.keys(pdb || {}), pids = ids.filter(function (id) { return /^1\.[1-5]$/.test(id); });
+  pk.sort(function (a, b) { return String((pdb[a] || {}).n || "").localeCompare(String((pdb[b] || {}).n || "")); });
+  $("pcount").textContent = pk.length ? "(" + pk.filter(function (key) { return stateOf(key, pdb).online; }).length + " online of " + pk.length + ")" : "";
+  $("pgrid").innerHTML = pk.length ? '<tr><th></th><th class="n">Name</th><th class="n">Register no.</th>' + pids.map(function (id) { return "<th>" + id + "</th>"; }).join("") + "</tr>" +
+    pk.map(function (key) {
+      var s = stateOf(key, pdb), d = pdb[key] || {};
+      return '<tr><td><span class="dot' + (s.online ? " on" : "") + '"></span></td><td class="n">' + esc(d.n || "?") + '</td><td class="n">' + esc(d.r || "?") + "</td>" +
+        pids.map(function (id) { return '<td><span class="cell ' + (s.cells[id] || "") + '"></span></td>'; }).join("") + "</tr>";
+    }).join("") : '<tr><td class="small">Nobody is in practice mode yet.</td></tr>';
   var stuckList = [];
   keys.forEach(function (key) { st[key].stuck.forEach(function (x) { stuckList.push({ key: key, id: x.id, tries: x.tries, on: st[key].online }); }); });
   stuckList.sort(function (a, b) { return b.tries - a.tries; });
   $("stuck").innerHTML = stuckList.length ? "<ul>" + stuckList.slice(0, 15).map(function (x) {
-    return "<li><b>" + esc(ROSTER[x.key][1]) + "</b> · task " + x.id + " · " + x.tries + " wrong tries" + (x.on ? "" : " (offline)") + "</li>";
+    return "<li><b>" + esc(nm(x.key)) + "</b> · task " + x.id + " · " + x.tries + " wrong tries" + (x.on ? "" : " (offline)") + "</li>";
   }).join("") + "</ul>" : "Nobody is stuck right now.";
   var show = $("names").checked;
   var rank = keys.filter(function (key) { return st[key].done > 0; }).sort(function (a, b) {
@@ -141,6 +177,13 @@ function render() {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
+if (PUBLIC_PAGE) {
+  $("rosterbox").hidden = false;
+  var rs = function () { $("rstat").textContent = Object.keys(ROSTER).length ? "loaded: " + Object.keys(ROSTER).length + " students" : "not loaded"; };
+  rs();
+  $("rfile").addEventListener("change", function (e) { var f = e.target.files[0]; if (!f) return; var fr = new FileReader(); fr.onload = function () { try { var o = JSON.parse(fr.result); if (typeof o !== "object" || Array.isArray(o)) throw 0; ROSTER = o; localStorage.setItem("passport-roster", JSON.stringify(o)); rs(); render(); } catch (x) { $("rstat").textContent = "that is not a roster file"; } }; fr.readAsText(f); });
+  $("rclear").addEventListener("click", function () { try { localStorage.removeItem("passport-roster"); } catch (e) {} ROSTER = {}; rs(); render(); });
+}
 $("connect").addEventListener("click", connect);
 ["sort", "names", "thr"].forEach(function (i) { $(i).addEventListener("change", render); });
 var saved = ""; try { saved = localStorage.getItem("passport-dash-url") || ""; } catch (e) {}

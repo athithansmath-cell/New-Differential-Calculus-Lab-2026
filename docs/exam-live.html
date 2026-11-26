@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exam pages: live class view</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d2433;--mute:#6b7385;--line:#e2ddd0;--ok:#1d7a46;--part:#d9a21b;--stuck:#c0392b;--none:#d8d5cc;--acc:#b4442b}
+@media (prefers-color-scheme:dark){:root{--bg:#14171f;--card:#1c212c;--ink:#ecebe6;--mute:#9aa3b5;--line:#2c3342;--ok:#3fb27a;--part:#e0b13a;--stuck:#ef6a5b;--none:#3a4152;--acc:#e2765c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+.wrap{max-width:1250px;margin:0 auto;padding:16px}
+h1{font:700 1.5rem Georgia,serif;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{flex:1;min-width:130px}.stat b{display:block;font-size:1.7rem;line-height:1.1}.stat span{color:var(--mute);font-size:.85rem}
+input,select,button{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 10px}button{cursor:pointer}button.on{outline:2px solid var(--acc)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.small{color:var(--mute);font-size:.85rem}
+.status{padding:3px 10px;border-radius:99px;font-size:.85rem;border:1px solid var(--line)}.status.good{color:var(--ok);border-color:var(--ok)}.status.bad{color:var(--stuck);border-color:var(--stuck)}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%}th,td{padding:3px 5px;text-align:center;font-size:.8rem}td.n,th.n{text-align:left;white-space:nowrap}
+th{color:var(--mute);font-weight:600}tr+tr td{border-top:1px solid var(--line)}
+.c{display:inline-block;min-width:34px;padding:2px 4px;border-radius:5px;background:var(--none);color:var(--ink);font-variant-numeric:tabular-nums}
+.c.ok{background:var(--ok);color:#fff}.c.part{background:var(--part);color:#1d2433}.c.stuck{background:var(--stuck);color:#fff}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--none);margin-right:5px}.dot.on{background:var(--ok)}
+.help{color:var(--stuck)}
+.diag td{text-align:left;font-size:.85rem}.diag .good{color:var(--ok)}.diag .bad{color:var(--stuck)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Exam pages: live class view</h1>
+  <p class="small">Shows students working on the plain Exam-Ready page and on the page with visuals. It refreshes by itself every 5 seconds. Names and register numbers appear here, so keep this link to yourself. <a href="teacher.html">Passport live view &rarr;</a></p>
+  <div class="card">
+    <div class="row">
+      <span id="conn" class="status">not connected</span>
+      <input id="url" size="62" placeholder="Firebase Realtime Database URL">
+      <button id="connect">Connect</button>
+      <button id="test">Test connection</button>
+    </div>
+    <div id="diag" class="small"></div>
+  </div>
+  <div class="row" id="tabs"><button data-p="exam" class="on">Plain exam page</button><button data-p="visual">Exam page with visuals</button></div>
+  <div class="card"><div class="stats" id="stats"></div></div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0">Students</h2>
+      <select id="sort"><option value="seen">last active</option><option value="done">most answered</option><option value="name">name</option><option value="mock">mock score</option></select>
+      <input id="q" placeholder="search name or reg. no." size="22">
+      <label class="small">needs help after <input id="thr" type="number" min="2" max="20" value="4" style="width:60px"> wrong tries</label></div>
+    <p class="small">Each task cell: answer boxes confirmed / total. Green = task complete, amber = in progress, red = stuck (many wrong tries). Mock = score out of 12 (&bull; = running). Pic = pictures opened, Lab = labs used (visual page only).</p>
+    <div class="scroll"><table id="grid"></table></div>
+  </div>
+</div>
+<script>
+var Q = {"1.1": [1, 1], "1.2": [1, 1], "1.3": [1, 2], "1.4": [1, 3], "1.5": [1, 3], "2.1": [2, 3], "2.2": [2, 3], "2.3": [2, 3], "2.4": [2, 2], "2.5": [2, 2], "2.6": [2, 2], "3.1": [3, 2], "3.2": [3, 1], "3.3": [3, 2], "3.4": [3, 4], "3.5": [3, 1], "3.6": [3, 2], "4.1": [4, 4], "4.2": [4, 1], "4.3": [4, 3], "4.4": [4, 3], "4.5": [4, 2], "5.1": [5, 3], "5.2": [5, 3], "5.3": [5, 2], "5.4": [5, 2], "5.5": [5, 2], "5.6": [5, 2], "6.1": [6, 2], "6.2": [6, 3], "6.3": [6, 2], "6.4": [6, 3], "6.5": [6, 2], "6.6": [6, 3], "7.1": [7, 3], "7.2": [7, 2], "7.3": [7, 1], "7.4": [7, 1], "7.5": [7, 2], "7.6": [7, 4], "8.1": [8, 2], "8.2": [8, 2], "8.3": [8, 2], "8.4": [8, 3], "8.5": [8, 2], "9.1": [9, 2], "9.2": [9, 2], "9.3": [9, 3], "9.4": [9, 3], "9.5": [9, 3], "9.6": [9, 2]}, MOCK = ["1.2", "2.1", "2.3", "3.4", "3.1", "4.1", "5.1", "6.3", "7.3", "8.3", "9.2", "9.4"], NAMES = {"1": "Matrices I: vector spaces, rank and the characteristic polynomial", "2": "Matrices II: eigenvalues, Cayley-Hamilton, diagonalisation", "3": "Differential equations I: first order and constant coefficients", "4": "Differential equations II: Cauchy-Euler, Legendre, variation of parameters", "5": "Curvature: Cartesian, parametric and polar forms", "6": "Evolutes, envelopes, pedal equations and curve tracing", "7": "Several variables I: partial derivatives, Euler, chain rule, Jacobian, Taylor", "8": "Several variables II: extrema and Lagrange multipliers", "9": "Sequences and series: tests of convergence"}, DEFAULT_URL = "https://calculus-passport-default-rtdb.asia-southeast1.firebasedatabase.app";
+var ONLINE_MS = 90000, page = "exam", data = { exam: {}, visual: {} }, pollT = null;
+var TT = {}, TOTAL = 0, t, q;
+for (q in Q) { TT[Q[q][0]] = (TT[Q[q][0]] || 0) + Q[q][1]; TOTAL += Q[q][1]; }
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function why(st) {
+  if (st === 401 || st === 403) return "Firebase refuses reading. In Firebase > Realtime Database > Rules paste the file firebase/database.rules.json and press Publish.";
+  if (st === 404) return "Database address not found. Check the address in the box.";
+  return "Firebase answered " + st + ".";
+}
+function fetchJ(u) { return fetch(u, { cache: "no-store" }).then(function (r) { if (!r.ok) { var e = new Error(why(r.status)); e.status = r.status; throw e; } return r.json(); }); }
+function base() { return $("url").value.trim().replace(/\/+$/, ""); }
+function connect() {
+  var url = base(); if (!url) return; try { localStorage.setItem("passport-dash-url", url); } catch (e) {}
+  clearInterval(pollT);
+  function tick() {
+    Promise.all([fetchJ(url + "/exam.json"), fetchJ(url + "/visual.json")]).then(function (a) {
+      data.exam = a[0] || {}; data.visual = a[1] || {}; $("conn").textContent = "live, updated " + new Date().toLocaleTimeString(); $("conn").className = "status good"; render();
+    }).catch(function (e) { $("conn").textContent = (e.status ? e.message : "cannot reach Firebase: check the internet, or an ad-blocker / school filter blocking firebasedatabase.app") + " (retrying)"; $("conn").className = "status bad"; });
+  }
+  tick(); pollT = setInterval(tick, 5000);
+}
+function testConn() {
+  var url = base(), paths = ["exam", "visual", "live", "practice"], rows = [];
+  $("diag").innerHTML = "Testing...";
+  Promise.all(paths.map(function (p) {
+    return fetch(url + "/" + p + ".json", { cache: "no-store" }).then(function (r) { return { p: p, ok: r.ok, st: r.status }; }, function () { return { p: p, ok: false, st: 0 }; });
+  })).then(function (rs) {
+    $("diag").innerHTML = '<table class="diag">' + rs.map(function (r) { return "<tr><td>/" + r.p + "</td><td class='" + (r.ok ? "good" : "bad") + "'>" + (r.ok ? "readable" : r.st ? "refused (" + r.st + ")" : "cannot reach") + "</td><td>" + (r.ok ? "" : r.st === 0 ? "Internet, ad-blocker, or a wrong address." : r.st === 404 ? "Address not found." : "Publish the rules file (Realtime Database > Rules).") + "</td></tr>"; }).join("") + "</table>";
+  });
+}
+function parts(d, field) { var o = d[field] || {}, per = {}, n = 0, k; for (k in o) { var qid = k.split(":")[0]; if (Q[qid]) { per[qid] = (per[qid] || 0) + 1; n++; } } return { per: per, n: n }; }
+function stateOf(d) {
+  var s = parts(d, "s"), w = d.w || {}, thr = Number($("thr").value) || 4, perTask = {}, cells = {}, stuck = [], tk;
+  for (var qid in Q) { var tkn = Q[qid][0]; perTask[tkn] = (perTask[tkn] || 0) + (s.per[qid] || 0); if ((s.per[qid] || 0) < Q[qid][1] && (w[qid] || 0) >= thr) stuck.push(qid); }
+  for (tk in TT) { var st = stuck.filter(function (x) { return Q[x][0] == tk; }).length; cells[tk] = perTask[tk] >= TT[tk] ? "ok" : (st ? "stuck" : (perTask[tk] > 0 ? "part" : "")); }
+  var seen = typeof d.t === "number" ? d.t : 0, mkp = parts(d, "mk");
+  return { perTask: perTask, cells: cells, done: s.n, stuck: stuck, seen: seen, online: d.o === 1 && Date.now() - seen < ONLINE_MS, mockStarted: !!d.ms, mockDone: d.mf === 1, mockScore: typeof d.sc === "number" ? d.sc : null, mockParts: mkp.n, pics: Object.keys(d.v || {}).length, labs: Object.keys(d.l || {}).length };
+}
+function ago(ms) { if (!ms) return "never"; var s = Math.round((Date.now() - ms) / 1000); return s < 60 ? s + " s" : s < 3600 ? Math.round(s / 60) + " min" : s < 86400 ? Math.round(s / 3600) + " h" : Math.round(s / 86400) + " d"; }
+function render() {
+  var d = data[page] || {}, keys = Object.keys(d).filter(function (k) { return d[k] && typeof d[k] === "object"; }), st = {}, vis = page === "visual";
+  keys.forEach(function (k) { st[k] = stateOf(d[k]); });
+  var on = 0, started = 0, fin = 0, mdone = 0, msum = 0;
+  keys.forEach(function (k) { if (st[k].online) on++; if (st[k].done > 0) started++; if (st[k].done >= TOTAL) fin++; if (st[k].mockDone && st[k].mockScore != null) { mdone++; msum += st[k].mockScore; } });
+  var avg = keys.length ? keys.reduce(function (s, k) { return s + st[k].done; }, 0) / keys.length : 0;
+  $("stats").innerHTML = [[on, "working now"], [started + " / " + keys.length, "started"], [Math.round(100 * avg / TOTAL) + "%", "average of all boxes"], [fin, "finished all nine tasks"], [mdone, "finished the mock"], [mdone ? (msum / mdone).toFixed(1) + " / 12" : "-", "average mock score"]].map(function (x) { return '<div class="stat"><b>' + x[0] + "</b><span>" + x[1] + "</span></div>"; }).join("");
+  var qs = $("q").value.trim().toLowerCase(), mode = $("sort").value, order = keys.filter(function (k) { return !qs || ((d[k].n || "") + " " + (d[k].r || "")).toLowerCase().indexOf(qs) >= 0; });
+  order.sort(function (a, b) { if (mode === "done") return st[b].done - st[a].done; if (mode === "name") return String(d[a].n).localeCompare(String(d[b].n)); if (mode === "mock") return (st[b].mockScore == null ? -1 : st[b].mockScore) - (st[a].mockScore == null ? -1 : st[a].mockScore); return st[b].seen - st[a].seen; });
+  var head = '<tr><th></th><th class="n">Student</th>' + Object.keys(TT).map(function (k) { return '<th title="' + esc(NAMES[k] || "") + '">T' + k + "</th>"; }).join("") + "<th>Boxes</th><th>Mock</th>" + (vis ? "<th>Pic</th><th>Lab</th>" : "") + '<th>Seen</th><th class="n">Needs help</th></tr>';
+  $("grid").innerHTML = head + (order.length ? order.map(function (k) {
+    var s = st[k], r = d[k];
+    return '<tr><td><span class="dot ' + (s.online ? "on" : "") + '"></span></td><td class="n">' + esc(r.n || "?") + ' <span class="small">' + esc(r.r || "") + "</span></td>" +
+      Object.keys(TT).map(function (tk) { return '<td><span class="c ' + s.cells[tk] + '">' + (s.perTask[tk] || 0) + "/" + TT[tk] + "</span></td>"; }).join("") +
+      "<td><b>" + s.done + "</b>/" + TOTAL + "</td><td>" + (s.mockDone && s.mockScore != null ? s.mockScore + "/12" : s.mockStarted ? "&bull;" : "-") + "</td>" + (vis ? "<td>" + s.pics + "</td><td>" + s.labs + "</td>" : "") +
+      "<td>" + ago(s.seen) + '</td><td class="n help">' + (s.stuck.length ? esc(s.stuck.join(", ")) : "") + "</td></tr>";
+  }).join("") : '<tr><td colspan="20" class="small" style="padding:18px">No students yet on this page. Rows appear as soon as a student logs in.</td></tr>');
+}
+$("connect").addEventListener("click", connect); $("test").addEventListener("click", testConn);
+["sort", "thr"].forEach(function (i) { $(i).addEventListener("change", render); }); $("q").addEventListener("input", render);
+Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function (b) { b.addEventListener("click", function () { page = b.getAttribute("data-p"); Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function (x) { x.classList.toggle("on", x === b); }); render(); }); });
+var saved = ""; try { saved = localStorage.getItem("passport-dash-url") || ""; } catch (e) {}
+$("url").value = saved || DEFAULT_URL; render(); setInterval(render, 10000); if ($("url").value) connect();
+</script>
+</body>
+</html>

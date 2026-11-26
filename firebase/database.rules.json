@@ -7,11 +7,169 @@
       "$key": {
         ".write": true,
         ".validate": "$key.matches(/^[0-9a-f]{12}$/)",
-        "t": { ".validate": "newData.isNumber()" },
-        "o": { ".validate": "newData.val() === 0 || newData.val() === 1" },
-        "s": { "$part": { ".validate": "newData.isNumber() && $part.matches(/^[1-3]\\.[1-9]:[0-9]$/)" } },
-        "w": { "$task": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 1000 && $task.matches(/^[1-3]\\.[1-9]$/)" } },
-        "$other": { ".validate": false }
+        "t": {
+          ".validate": "newData.isNumber()"
+        },
+        "o": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "s": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-3]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "w": {
+          "$task": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 1000 && $task.matches(/^[1-3]\\.[0-9]$/)"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "practice": {
+      ".read": true,
+      "$key": {
+        ".write": true,
+        ".validate": "$key.matches(/^[0-9a-f]{12}$/)",
+        "t": {
+          ".validate": "newData.isNumber()"
+        },
+        "o": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "s": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-3]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "w": {
+          "$task": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 1000 && $task.matches(/^[1-3]\\.[0-9]$/)"
+          }
+        },
+        "n": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "r": {
+          ".validate": "newData.isString() && newData.val().length <= 30"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "exam": {
+      ".read": true,
+      "$key": {
+        ".write": true,
+        ".validate": "$key.matches(/^[0-9a-f]{12}$/)",
+        "t": {
+          ".validate": "newData.isNumber()"
+        },
+        "o": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "n": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "r": {
+          ".validate": "newData.isString() && newData.val().length <= 30"
+        },
+        "s": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-9]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "w": {
+          "$q": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 10000 && $q.matches(/^[1-9]\\.[0-9]$/)"
+          }
+        },
+        "mk": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-9]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "v": {
+          "$q": {
+            ".validate": "newData.val() === 1 && $q.matches(/^[1-9]\\.[0-9]$/)"
+          }
+        },
+        "l": {
+          "$t": {
+            ".validate": "newData.val() === 1 && $t.matches(/^[1-9]$/)"
+          }
+        },
+        "ms": {
+          ".validate": "newData.isNumber()"
+        },
+        "mf": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "sc": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "visual": {
+      ".read": true,
+      "$key": {
+        ".write": true,
+        ".validate": "$key.matches(/^[0-9a-f]{12}$/)",
+        "t": {
+          ".validate": "newData.isNumber()"
+        },
+        "o": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "n": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "r": {
+          ".validate": "newData.isString() && newData.val().length <= 30"
+        },
+        "s": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-9]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "w": {
+          "$q": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 10000 && $q.matches(/^[1-9]\\.[0-9]$/)"
+          }
+        },
+        "mk": {
+          "$part": {
+            ".validate": "newData.isNumber() && $part.matches(/^[1-9]\\.[0-9]:[0-9]$/)"
+          }
+        },
+        "v": {
+          "$q": {
+            ".validate": "newData.val() === 1 && $q.matches(/^[1-9]\\.[0-9]$/)"
+          }
+        },
+        "l": {
+          "$t": {
+            ".validate": "newData.val() === 1 && $t.matches(/^[1-9]$/)"
+          }
+        },
+        "ms": {
+          ".validate": "newData.isNumber()"
+        },
+        "mf": {
+          ".validate": "newData.val() === 0 || newData.val() === 1"
+        },
+        "sc": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     }
   }

@@ -16,6 +16,13 @@
 .tabs2 button.full{background:rgba(30,120,70,.15)}
 .timer{font-variant-numeric:tabular-nums;font-weight:600}
 .weak li{margin:3px 0}
+.vbox{margin-top:6px}.vcap{font-size:.92rem;color:var(--mute);margin:6px 0}.vcap b{color:var(--ink)}
+.vrow{display:flex;align-items:center;gap:10px;margin:4px 0}.vrow label{flex:0 0 auto;min-width:90px;font-size:.9rem;color:var(--mute)}.vrow input[type=range]{flex:1;accent-color:var(--accent);min-width:80px}.vval{min-width:46px;text-align:right;font-variant-numeric:tabular-nums;font-size:.9rem}
+.vnote{font-size:.92rem;margin:6px 0}.vsub{font-weight:600;margin:14px 0 2px}
+.vtable table{border-collapse:collapse;margin:6px auto}.vtable td{border:1px solid var(--line);padding:4px 10px;text-align:right;font-variant-numeric:tabular-nums}
+.vbtn{gap:6px;flex-wrap:wrap;margin:6px 0}.vbtn button.on{outline:2px solid var(--accent)}
+details.lab>summary{cursor:pointer;font-weight:600}
+.vwrap{margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
 </style>
 </head>
 <body>
@@ -43,8 +50,11 @@
     <div id="panel"></div>
   </div>
 </div>
+<script src="../config.js"></script>
 <script src="../core.js"></script>
+<script src="../live.js"></script>
 <script src="meta.js"></script>
+<script>window.EXAM_CFG={viz:false,labs:false,live:"exam"};</script>
 <script src="exam.js"></script>
 </body>
 </html>
